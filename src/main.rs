@@ -3,19 +3,69 @@
 
 // use std::convert::TryInto;
 // use std::fs;
-// use std::io::Write;
+use std::io::Write;
+use std::path::PathBuf;
 
-use clap::Parser;
-// use fuzzy_finder::item::Item;
+use clap::{Parser, Subcommand};
+use fuzzy_finder::item::Item;
 
+mod drivers;
 mod git;
 
 // Command interface
-#[derive(Parser)]
-#[clap(version = "0.1", author = "Juan Fraire")]
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 struct Opts {
-    #[clap(short, long)]
-    branch: String,
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Prompt an interface to set global configuration file
+    GlobalConfig {
+        /// Sets a custom global config file
+        #[arg(short, long, value_name = "FILE")]
+        config: Option<PathBuf>,
+    },
+    /// Initialize a gbc project
+    Init {
+        /// Sets a custom project file
+        #[arg(short, long, value_name = "FILE")]
+        config: Option<PathBuf>,
+    },
+    /// Display a fuzzy_finder interface to select an issue from
+    /// the board and create a git branch from it
+    New {},
+}
+
+fn create_fuzzy_finder(issues: Vec<String>) -> String {
+    // Create a list of items from the list of issues
+    let items: Vec<Item<String>> = issues
+        .iter()
+        .map(|issue| Item::new(issue.to_string(), issue.to_string()))
+        .collect();
+
+    // Prompt the user to select an issue from the list of issues
+    let items_count = items.len();
+
+    let find_result = match fuzzy_finder::FuzzyFinder::find(items, items_count.try_into().unwrap())
+    {
+        Ok(result) => result,
+        Err(e) => {
+            std::io::stdout().flush().unwrap();
+            panic!("Failed to find result: {}", e);
+        }
+    };
+    let item = match find_result {
+        Some(result) => result,
+        None => {
+            panic!("Invalid result");
+        }
+    };
+    println!();
+
+    return item;
 }
 
 fn main() {
@@ -33,11 +83,24 @@ fn main() {
     //     issue_key,
     //     jira::jira_get_issue_summary(&issue).replace(" ", "-")
     // );
+    let issues = drivers::mock::get_issues("GBC");
 
     let opts: Opts = Opts::parse();
-    let branch_name = opts.branch.to_string();
 
-    git::branch_create(branch_name.clone());
+    match opts.command {
+        Commands::GlobalConfig { config } => {
+            println!("GlobalConfig");
+            println!("{:?}", config);
+        }
+        Commands::Init { config } => {
+            println!("Init");
+            println!("{:?}", config);
+        }
+        Commands::New {} => {
+            let item = create_fuzzy_finder(issues);
+            git::branch_create(item.clone());
 
-    println!("Created branch {}", branch_name);
+            println!("Created branch {}", item);
+        }
+    }
 }

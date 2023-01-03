@@ -23,6 +23,6 @@ pub fn branch_create(branch_name: std::string::String) {
     let branch_ref_name = branch_ref.name().unwrap();
 
     repo.set_head(branch_ref_name).unwrap();
-    repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
+    repo.checkout_head(Some(git2::build::CheckoutBuilder::default().safe()))
         .unwrap();
 }
