@@ -3,16 +3,17 @@
 
 use git2::Repository;
 
-fn git_repository_open_from_workdir() -> Repository {
-    match Repository::open(".") {
+fn git_repository_open_from_workdir(path: &str) -> Repository {
+    match Repository::open(path) {
         Ok(repo) => repo,
         Err(e) => panic!("failed to open: {}", e),
     }
 }
 
 // Create a git branch in the current repository
-pub fn branch_create(branch_name: std::string::String) {
-    let repo = git_repository_open_from_workdir();
+pub fn branch_create(repo_path: Option<&str>, branch_name: std::string::String) {
+    let path = repo_path.unwrap_or(".");
+    let repo = git_repository_open_from_workdir(path);
     let head = repo.head().unwrap();
     let head_commit = head.peel_to_commit().unwrap();
 

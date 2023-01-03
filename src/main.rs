@@ -92,7 +92,7 @@ fn main() {
         Commands::New {} => {
             let item = create_fuzzy_finder(issues);
             println!();
-            git::branch_create(item.clone());
+            git::branch_create(None, item.clone());
 
             println!("Created branch {}", item);
         }
