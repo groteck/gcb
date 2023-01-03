@@ -49,23 +49,16 @@ fn create_fuzzy_finder(issues: Vec<String>) -> String {
     // Prompt the user to select an issue from the list of issues
     let items_count = items.len();
 
-    let find_result = match fuzzy_finder::FuzzyFinder::find(items, items_count.try_into().unwrap())
-    {
-        Ok(result) => result,
+    match fuzzy_finder::FuzzyFinder::find(items, items_count.try_into().unwrap()) {
+        Ok(Some(result)) => result,
+        Ok(None) => {
+            panic!("Invalid result");
+        }
         Err(e) => {
             std::io::stdout().flush().unwrap();
             panic!("Failed to find result: {}", e);
         }
-    };
-    let item = match find_result {
-        Some(result) => result,
-        None => {
-            panic!("Invalid result");
-        }
-    };
-    println!();
-
-    return item;
+    }
 }
 
 fn main() {
@@ -98,6 +91,7 @@ fn main() {
         }
         Commands::New {} => {
             let item = create_fuzzy_finder(issues);
+            println!();
             git::branch_create(item.clone());
 
             println!("Created branch {}", item);
