@@ -1,9 +1,12 @@
 // Diver mock for testing
 
-// list of issues from a board.
+// Driver Errors
+#[derive(Debug)]
+pub struct Error(String);
 
-pub fn get_issues(_board_id: &str) -> Vec<String> {
-    vec![
+// list of issues from a board.
+pub fn get_issues(_board_id: &str) -> Result<Vec<String>, Error> {
+    Ok(vec![
         "GBC-1".to_string(),
         "GBC-2".to_string(),
         "GBC-3".to_string(),
@@ -13,5 +16,5 @@ pub fn get_issues(_board_id: &str) -> Vec<String> {
         "GBC-7".to_string(),
         "GBC-8".to_string(),
         "GBC-9".to_string(),
-    ]
+    ])
 }
