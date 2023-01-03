@@ -14,7 +14,7 @@ fn git_repository_open_from_workdir(path: PathBuf) -> Repository {
 
 // Create a git branch in the current repository
 pub fn branch_create(repo_path: Option<PathBuf>, branch_name: std::string::String) {
-    let path = repo_path.unwrap_or(PathBuf::from("."));
+    let path = repo_path.unwrap_or_else(|| PathBuf::from("."));
     let repo = git_repository_open_from_workdir(path);
     let head = repo.head().unwrap();
     let head_commit = head.peel_to_commit().unwrap();
