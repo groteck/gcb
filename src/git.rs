@@ -4,12 +4,10 @@
 use git2::Repository;
 
 fn git_repository_open_from_workdir() -> Repository {
-    let repo = match Repository::open(".") {
+    match Repository::open(".") {
         Ok(repo) => repo,
         Err(e) => panic!("failed to open: {}", e),
-    };
-
-    return repo;
+    }
 }
 
 // Create a git branch in the current repository
