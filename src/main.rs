@@ -36,7 +36,10 @@ enum Commands {
     },
     /// Display a fuzzy_finder interface to select an issue from
     /// the board and create a git branch from it
-    New {},
+    New {
+        #[arg(required = false)]
+        path: Option<PathBuf>,
+    },
 }
 
 fn create_fuzzy_finder(issues: Vec<String>) -> String {
@@ -89,10 +92,10 @@ fn main() {
             println!("Init");
             println!("{:?}", config);
         }
-        Commands::New {} => {
+        Commands::New { path } => {
             let item = create_fuzzy_finder(issues);
             println!();
-            git::branch_create(item.clone());
+            git::branch_create(path, item.clone());
 
             println!("Created branch {}", item);
         }
