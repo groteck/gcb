@@ -4,6 +4,8 @@ use std::error::Error;
 use std::fmt::{self, Display};
 use std::io::Write;
 
+use crate::drivers::issue::Issue;
+
 // fuzzy finder errors
 #[derive(Debug)]
 pub enum FuzzyFinderError {
@@ -20,16 +22,21 @@ impl Display for FuzzyFinderError {
 impl Error for FuzzyFinderError {}
 
 // Render a fuzzy_finder interface and returs a result or an error.
-pub fn render(issues: Vec<String>) -> Result<String, FuzzyFinderError> {
+pub fn render(issues: Vec<Issue>) -> Result<Issue, FuzzyFinderError> {
     // Create a list of items from the list of issues
-    let items: Vec<Item<String>> = issues
+    let items = issues
         .iter()
-        .map(|issue| Item::new(issue.to_string(), issue.to_string()))
+        .map(|issue| Item::new(issue.id.to_string(), issue.title.to_string()))
         .collect();
 
     // Prompt the user to select an issue from the list of issues
     match fuzzy_finder::FuzzyFinder::find(items, 8) {
-        Ok(Some(result)) => Ok(result),
+        Ok(Some(result)) => {
+            // Get the issue from the list of issues
+            let issue = issues.into_iter().find(|issue| issue.id == result).unwrap();
+
+            Ok(issue)
+        }
         Ok(None) => Err(Report::new(FuzzyFinderError::Empty)),
         Err(e) => {
             let stderr = &mut std::io::stderr();
