@@ -1,16 +1,16 @@
 // CLI tool that creates a git branch from a fuzzy finder interface with a list
 // of issues from a Jira board.
 
-// use std::convert::TryInto;
-// use std::fs;
-use std::io::Write;
+mod drivers;
+mod git;
+mod global_config;
+mod ui;
+
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use fuzzy_finder::item::Item;
-
-mod drivers;
-mod git;
+use global_config::Config;
+use ui::fuzzy_finder;
 
 // Command interface
 #[derive(Parser, Debug)]
@@ -21,19 +21,23 @@ struct Opts {
 }
 
 #[derive(Subcommand, Debug)]
+enum GlobalConfigCommands {
+    /// Create or update the global configuration file with the credentials
+    /// provided
+    AddCredentials,
+    /// Display the global configuration file pretty printed
+    Display,
+}
+
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// Prompt an interface to set global configuration file
     GlobalConfig {
-        /// Sets a custom global config file
-        #[arg(short, long, value_name = "FILE")]
-        config: Option<PathBuf>,
+        #[command(subcommand)]
+        command: GlobalConfigCommands,
     },
     /// Initialize a gbc project
-    Init {
-        /// Sets a custom project file
-        #[arg(short, long, value_name = "FILE")]
-        config: Option<PathBuf>,
-    },
+    Init {},
     /// Display a fuzzy_finder interface to select an issue from
     /// the board and create a git branch from it
     New {
@@ -42,62 +46,47 @@ enum Commands {
     },
 }
 
-fn create_fuzzy_finder(issues: Vec<String>) -> String {
-    // Create a list of items from the list of issues
-    let items: Vec<Item<String>> = issues
-        .iter()
-        .map(|issue| Item::new(issue.to_string(), issue.to_string()))
-        .collect();
-
-    // Prompt the user to select an issue from the list of issues
-    let items_count = items.len();
-
-    match fuzzy_finder::FuzzyFinder::find(items, items_count.try_into().unwrap()) {
-        Ok(Some(result)) => result,
-        Ok(None) => {
-            panic!("Invalid result");
-        }
-        Err(e) => {
-            std::io::stdout().flush().unwrap();
-            panic!("Failed to find result: {}", e);
-        }
-    }
-}
-
 fn main() {
-    // let issues = jira::jira_get_issues(args.jira_board_id);
-    // let issue_keys = jira::jira_get_issue_keys(&issues);
-    //
-    // let issue_key = fuzzy_finder::fuzzy_find(issue_keys, |item| item.as_str())
-    //     .expect("No issue selected")
-    //     .to_string();
-    //
-    // let issue = jira::jira_get_issue(&issue_key);
-    //
-    // let branch_name = format!(
-    //     "{}-{}",
-    //     issue_key,
-    //     jira::jira_get_issue_summary(&issue).replace(" ", "-")
-    // );
-    let issues = drivers::mock::get_issues("GBC");
-
     let opts: Opts = Opts::parse();
+    let mut config = Config::load().unwrap();
 
     match opts.command {
-        Commands::GlobalConfig { config } => {
-            println!("GlobalConfig");
-            println!("{:?}", config);
-        }
-        Commands::Init { config } => {
-            println!("Init");
-            println!("{:?}", config);
+        Commands::GlobalConfig { command } => match command {
+            GlobalConfigCommands::AddCredentials => {
+                let credentials = ui::get_credentials();
+                config.create_or_update_credentials(credentials).unwrap();
+            }
+            GlobalConfigCommands::Display => {
+                config.print();
+            }
+        },
+        Commands::Init {} => {
+            println!("Init was called");
         }
         Commands::New { path } => {
-            let item = create_fuzzy_finder(issues);
-            println!();
-            git::branch_create(path, item.clone());
+            let credentials_url = &config
+                .get_credentials("https://jira.atlassian.com".to_string())
+                .unwrap()
+                .url;
+            let issues = drivers::mock::get_issues(credentials_url).unwrap_or_default();
 
-            println!("Created branch {}", item);
+            // TODO: Handle the branch name formatting
+            // let branch_name = format!(
+            //     "{}-{}",
+            //     issue_key,
+            //     jira::jira_get_issue_summary(&issue).replace(" ", "-")
+            // );
+
+            match fuzzy_finder::render(issues) {
+                Ok(issue) => {
+                    git::branch_create(path, issue.clone());
+                    println!("Created branch {}", issue);
+                }
+                Err(e) => {
+                    eprintln!("Error: {:?}", e);
+                    std::process::exit(1);
+                }
+            }
         }
     }
 }
