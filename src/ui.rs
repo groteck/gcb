@@ -6,15 +6,16 @@ use crate::global_config::{Access, Credentials};
 fn prompt(question: &str) -> String {
     let mut answer = String::new();
     println!("{}", question);
-    std::io::stdin().read_line(&mut answer).unwrap();
+    std::io::stdin().read_line(&mut answer).unwrap_or_default();
     answer.trim().to_string()
 }
 
-// Helper function that creates a new Credentials struct from the user input and updates the Configurations file with the new credentials
-
+// Helper function that creates a new Credentials struct from the user input
+// and updates the Configurations file with the new credentials
 pub fn get_credentials() -> Credentials {
     let url = prompt("Enter the URL of the API");
     let access = prompt("Enter the access type (basic or token)");
+
     match access.as_str() {
         "basic" => {
             let username = prompt("Enter the username");
