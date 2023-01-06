@@ -6,10 +6,12 @@ mod git;
 mod global_config;
 mod ui;
 
-use std::path::PathBuf;
-
 use clap::{Parser, Subcommand};
 use global_config::Config;
+use std::{
+    path::PathBuf,
+    process::{ExitCode, Termination},
+};
 use ui::fuzzy_finder;
 
 // Command interface
@@ -46,47 +48,50 @@ enum Commands {
     },
 }
 
-fn main() {
+fn main() -> ExitCode {
     let opts: Opts = Opts::parse();
-    let mut config = Config::load().unwrap();
 
-    match opts.command {
-        Commands::GlobalConfig { command } => match command {
-            GlobalConfigCommands::AddCredentials => {
-                let credentials = ui::get_credentials();
-                config.create_or_update_credentials(credentials).unwrap();
-            }
-            GlobalConfigCommands::Display => {
-                config.print();
-            }
-        },
-        Commands::Init {} => {
-            println!("Init was called");
-        }
-        Commands::New { path } => {
-            let credentials_url = &config
-                .get_credentials("https://jira.atlassian.com".to_string())
-                .unwrap()
-                .url;
-            let issues = drivers::mock::get_issues(credentials_url).unwrap_or_default();
+    Config::load()
+        .and_then(|mut config| match opts.command {
+            Commands::GlobalConfig { command } => match command {
+                GlobalConfigCommands::AddCredentials => {
+                    let credentials = ui::get_credentials();
 
-            // TODO: Handle the branch name formatting
-            // let branch_name = format!(
-            //     "{}-{}",
-            //     issue_key,
-            //     jira::jira_get_issue_summary(&issue).replace(" ", "-")
-            // );
-
-            match fuzzy_finder::render(issues) {
-                Ok(issue) => {
-                    git::branch_create(path, issue.clone());
-                    println!("Created branch {}", issue);
+                    config
+                        .create_or_update_credentials(credentials)
+                        .map(|_| ExitCode::SUCCESS)
                 }
-                Err(e) => {
-                    eprintln!("Error: {:?}", e);
-                    std::process::exit(1);
-                }
+                GlobalConfigCommands::Display => config.print().map(|_| ExitCode::SUCCESS),
+            },
+            Commands::Init {} => {
+                println!("Init was called");
+                Ok(ExitCode::SUCCESS)
             }
-        }
-    }
+            Commands::New { path } => {
+                config
+                    .get_credentials("https://jira.atlassian.com".to_string())
+                    .map(|credentials| {
+                        let issues =
+                            drivers::mock::get_issues(&credentials.url).unwrap_or_default();
+
+                        // TODO: Handle the branch name formatting
+                        // let branch_name = format!(
+                        //     "{}-{}",
+                        //     issue_key,
+                        //     jira::jira_get_issue_summary(&issue).replace(" ", "-")
+                        // );
+
+                        match fuzzy_finder::render(issues) {
+                            Ok(issue) => {
+                                git::branch_create(path, issue).unwrap_or_else(|e| {
+                                    e.report();
+                                });
+                                ExitCode::SUCCESS
+                            }
+                            Err(e) => e.report(),
+                        }
+                    })
+            }
+        })
+        .unwrap_or_else(|e| e.report())
 }
