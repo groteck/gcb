@@ -1,7 +1,10 @@
 // CLI UI components
 pub mod fuzzy_finder;
 
-use crate::global_config::{Access, Credentials};
+use crate::features::{
+    global_config::{Access, Credentials},
+    init::ProjectConfig,
+};
 
 fn prompt(question: &str) -> String {
     let mut answer = String::new();
@@ -37,4 +40,12 @@ pub fn get_credentials() -> Credentials {
             std::process::exit(1);
         }
     }
+}
+
+// Helper function that initialize the project configuration file from the user input
+pub fn get_project_config() -> ProjectConfig {
+    let identifier = prompt("Enter the project/board identifier");
+    let url = prompt("Enter the project API URL");
+
+    ProjectConfig::new(identifier, url, None)
 }
